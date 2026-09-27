@@ -1,0 +1,51 @@
+{
+  "name": "process-center",
+  "version": "0.1.0",
+  "description": "Process Center for CAP: step-based, resumable, self-healing background processes with draft-aware object locking",
+  "private": true,
+  "scripts": {
+    "setup": "npm run deploy && npm run sample",
+    "deploy": "cds deploy --to sqlite:db.sqlite",
+    "sample": "node scripts/make-sample-excel.js",
+    "start": "cds serve all",
+    "watch": "cds watch --open fiori.html",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@sap/cds": "9.5.1",
+    "exceljs": "^4.4.0",
+    "express": "^4"
+  },
+  "devDependencies": {
+    "@cap-js/sqlite": "2.1.1",
+    "@sap/cds-dk": "9.5.0"
+  },
+  "cds": {
+    "requires": {
+      "db": {
+        "kind": "sqlite",
+        "credentials": {
+          "url": "db.sqlite"
+        }
+      },
+      "auth": {
+        "kind": "mocked",
+        "users": {
+          "alice": {
+            "password": "alice"
+          },
+          "bob": {
+            "password": "bob"
+          }
+        }
+      }
+    },
+    "processCenter": {
+      "pollIntervalMs": 1000,
+      "batchSize": 5
+    }
+  },
+  "overrides": {
+    "better-sqlite3": "11.10.0"
+  }
+}

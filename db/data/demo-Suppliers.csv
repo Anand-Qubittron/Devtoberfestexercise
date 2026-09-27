@@ -1,0 +1,4 @@
+ID;supplierNo;name;country;blocked
+6f1d2c3a-0001-4000-8000-000000000001;S-100;Nordic Steel AB;SE;false
+6f1d2c3a-0001-4000-8000-000000000002;S-200;Rhein Chemicals GmbH;DE;false
+6f1d2c3a-0001-4000-8000-000000000003;S-300;Pacific Plastics Ltd;SG;true

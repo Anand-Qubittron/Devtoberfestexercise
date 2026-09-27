@@ -1,0 +1,140 @@
+{
+  "_version": "1.59.0",
+  "sap.app": {
+    "id": "pc.processmonitor",
+    "type": "application",
+    "title": "Process Monitor",
+    "applicationVersion": {
+      "version": "0.1.0"
+    },
+    "dataSources": {
+      "mainService": {
+        "uri": "/odata/v4/process-monitor/",
+        "type": "OData",
+        "settings": {
+          "odataVersion": "4.0"
+        }
+      }
+    }
+  },
+  "sap.ui": {
+    "technology": "UI5",
+    "deviceTypes": {
+      "desktop": true,
+      "tablet": true,
+      "phone": true
+    }
+  },
+  "sap.ui5": {
+    "dependencies": {
+      "minUI5Version": "1.120.0",
+      "libs": {
+        "sap.m": {},
+        "sap.ui.core": {},
+        "sap.fe.templates": {}
+      }
+    },
+    "contentDensities": {
+      "compact": true,
+      "cozy": true
+    },
+    "models": {
+      "": {
+        "dataSource": "mainService",
+        "preload": true,
+        "settings": {
+          "operationMode": "Server",
+          "autoExpandSelect": true,
+          "earlyRequests": true
+        }
+      }
+    },
+    "routing": {
+      "routes": [
+        {
+          "pattern": ":?query:",
+          "name": "List",
+          "target": "List"
+        },
+        {
+          "pattern": "ProcessInstances({key}):?query:",
+          "name": "Detail",
+          "target": "Detail"
+        }
+      ],
+      "targets": {
+        "List": {
+          "type": "Component",
+          "id": "List",
+          "name": "sap.fe.templates.ListReport",
+          "options": {
+            "settings": {
+              "contextPath": "/ProcessInstances",
+              "variantManagement": "Page",
+              "initialLoad": "Enabled",
+              "navigation": {
+                "ProcessInstances": {
+                  "detail": {
+                    "route": "Detail"
+                  }
+                }
+              },
+              "controlConfiguration": {
+                "@com.sap.vocabularies.UI.v1.LineItem": {
+                  "tableSettings": {
+                    "type": "ResponsiveTable",
+                    "selectionMode": "Multi"
+                  }
+                }
+              },
+              "views": {
+                "paths": [
+                  {
+                    "key": "attention",
+                    "annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#attention"
+                  },
+                  {
+                    "key": "running",
+                    "annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#running"
+                  },
+                  {
+                    "key": "completed",
+                    "annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#completed"
+                  },
+                  {
+                    "key": "all",
+                    "annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#all"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "Detail": {
+          "type": "Component",
+          "id": "Detail",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "contextPath": "/ProcessInstances",
+              "editableHeaderContent": false
+            }
+          }
+        }
+      }
+    },
+    "extends": {
+      "extensions": {
+        "sap.ui.controllerExtensions": {
+          "sap.fe.templates.ListReport.ListReportController": {
+            "controllerName": "pc.processmonitor.ext.AutoRefresh"
+          }
+        }
+      }
+    }
+  },
+  "sap.fiori": {
+    "registrationIds": [],
+    "archeType": "transactional"
+  }
+}
