@@ -1,0 +1,21 @@
+{
+  "_version": "1.59.0",
+  "sap.app": {
+    "id": "pc.knowledgegraph",
+    "type": "application",
+    "title": "Knowledge Graph Explorer",
+    "applicationVersion": { "version": "0.1.0" },
+    "dataSources": {
+      "kg": { "uri": "/odata/v4/knowledge-graph/", "type": "JSON" }
+    }
+  },
+  "sap.ui": { "technology": "UI5", "deviceTypes": { "desktop": true, "tablet": true, "phone": true } },
+  "sap.ui5": {
+    "dependencies": {
+      "minUI5Version": "1.120.0",
+      "libs": { "sap.m": {}, "sap.ui.core": {}, "sap.ui.layout": {}, "sap.suite.ui.commons": {} }
+    },
+    "contentDensities": { "compact": true, "cozy": true },
+    "rootView": { "viewName": "pc.knowledgegraph.view.Main", "type": "XML", "id": "main" }
+  }
+}

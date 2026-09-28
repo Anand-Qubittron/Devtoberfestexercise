@@ -1,0 +1,77 @@
+@prefix pc:   <https://devtoberfest.local/ontology#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# Ontology for the Devtoberfest Process Center and my learning journey.
+# It describes business concepts and their relationships only — the data (RDF)
+# is generated from the CAP database by rdf.js.
+
+<https://devtoberfest.local/ontology> a owl:Ontology ;
+  rdfs:label "Devtoberfest Process Center ontology" .
+
+# ─── Purchasing ──────────────────────────────────────────────────────────────
+pc:Supplier        a owl:Class ; rdfs:label "Supplier" .
+pc:Material        a owl:Class ; rdfs:label "Material" .
+pc:PurchaseRequest a owl:Class ; rdfs:label "Purchase request" .
+pc:Upload          a owl:Class ; rdfs:label "Excel upload" .
+pc:UploadRow       a owl:Class ; rdfs:label "Upload row" .
+pc:User            a owl:Class ; rdfs:label "User" .
+pc:Country         a owl:Class ; rdfs:label "Country" .
+
+pc:suppliedBy   a owl:ObjectProperty ; rdfs:label "supplied by" ;  rdfs:domain pc:Material ;        rdfs:range pc:Supplier .
+pc:locatedIn    a owl:ObjectProperty ; rdfs:label "located in" ;   rdfs:domain pc:Supplier ;        rdfs:range pc:Country .
+pc:hasRow       a owl:ObjectProperty ; rdfs:label "has row" ;      rdfs:domain pc:Upload ;          rdfs:range pc:UploadRow .
+pc:uploadedBy   a owl:ObjectProperty ; rdfs:label "uploaded by" ;  rdfs:domain pc:Upload ;          rdfs:range pc:User .
+pc:orders       a owl:ObjectProperty ; rdfs:label "orders" ;       rdfs:domain pc:UploadRow ;       rdfs:range pc:Material .
+pc:resultedIn   a owl:ObjectProperty ; rdfs:label "resulted in" ;  rdfs:domain pc:UploadRow ;       rdfs:range pc:PurchaseRequest .
+pc:forMaterial  a owl:ObjectProperty ; rdfs:label "for material" ; rdfs:domain pc:PurchaseRequest ; rdfs:range pc:Material .
+pc:fromSupplier a owl:ObjectProperty ; rdfs:label "from supplier" ; rdfs:domain pc:PurchaseRequest ; rdfs:range pc:Supplier .
+
+pc:blocked      a owl:DatatypeProperty ; rdfs:label "blocked" ;     rdfs:domain pc:Supplier ;  rdfs:range xsd:boolean .
+pc:price        a owl:DatatypeProperty ; rdfs:label "price" ;       rdfs:domain pc:Material ;  rdfs:range xsd:decimal .
+pc:quantity     a owl:DatatypeProperty ; rdfs:label "quantity" ;    rdfs:range xsd:integer .
+pc:amount       a owl:DatatypeProperty ; rdfs:label "amount" ;      rdfs:domain pc:PurchaseRequest ; rdfs:range xsd:decimal .
+pc:rowNumber    a owl:DatatypeProperty ; rdfs:label "row number" ;  rdfs:domain pc:UploadRow ; rdfs:range xsd:integer .
+pc:orderedMaterialNo a owl:DatatypeProperty ; rdfs:label "ordered material number" ; rdfs:domain pc:UploadRow ;
+  rdfs:comment "Kept even when the material does not exist (yet)" .
+
+# ─── Processing ──────────────────────────────────────────────────────────────
+pc:Process     a owl:Class ; rdfs:label "Process instance" .
+pc:StepRun     a owl:Class ; rdfs:label "Step execution" .
+pc:Lock        a owl:Class ; rdfs:label "Object lock" .
+pc:ProcessStatus a owl:Class ; rdfs:label "Process status" .
+
+pc:processedBy  a owl:ObjectProperty ; rdfs:label "processed by" ; rdfs:domain pc:UploadRow ; rdfs:range pc:Process .
+pc:hasStatus    a owl:ObjectProperty ; rdfs:label "has status" ;   rdfs:domain pc:Process ;   rdfs:range pc:ProcessStatus .
+pc:waitsFor     a owl:ObjectProperty ; rdfs:label "waits for" ;    rdfs:domain pc:Process ;
+  rdfs:comment "A parked process resumes automatically once this object is saved" .
+pc:hasStepRun   a owl:ObjectProperty ; rdfs:label "has step run" ; rdfs:domain pc:Process ;   rdfs:range pc:StepRun .
+pc:locks        a owl:ObjectProperty ; rdfs:label "locks" ;        rdfs:domain pc:Lock .
+pc:heldBy       a owl:ObjectProperty ; rdfs:label "held by" ;      rdfs:domain pc:Lock .
+pc:currentStep  a owl:DatatypeProperty ; rdfs:label "current step" ; rdfs:domain pc:Process .
+pc:message      a owl:DatatypeProperty ; rdfs:label "message" .
+pc:errorKind    a owl:DatatypeProperty ; rdfs:label "error kind" ; rdfs:domain pc:Process .
+pc:lockMode     a owl:DatatypeProperty ; rdfs:label "lock mode" ;  rdfs:domain pc:Lock .
+
+pc:Ready     a pc:ProcessStatus ; rdfs:label "Ready" .
+pc:Running   a pc:ProcessStatus ; rdfs:label "Running" .
+pc:Retrying  a pc:ProcessStatus ; rdfs:label "Retrying" .
+pc:Parked    a pc:ProcessStatus ; rdfs:label "Parked" .
+pc:Failed    a pc:ProcessStatus ; rdfs:label "Failed" .
+pc:Completed a pc:ProcessStatus ; rdfs:label "Completed" .
+pc:Cancelled a pc:ProcessStatus ; rdfs:label "Cancelled" .
+
+# ─── Learning journey ────────────────────────────────────────────────────────
+pc:Session a owl:Class ; rdfs:label "Devtoberfest session" .
+pc:Concept a owl:Class ; rdfs:label "Concept" .
+pc:App     a owl:Class ; rdfs:label "App" .
+pc:SourceFile a owl:Class ; rdfs:label "Source file" .
+
+pc:teaches       a owl:ObjectProperty ; rdfs:label "teaches" ;        rdfs:domain pc:Session ; rdfs:range pc:Concept .
+pc:demonstratedIn a owl:ObjectProperty ; rdfs:label "demonstrated in" ; rdfs:domain pc:Concept ; rdfs:range pc:App .
+pc:implementedIn a owl:ObjectProperty ; rdfs:label "implemented in" ; rdfs:domain pc:Concept ; rdfs:range pc:SourceFile .
+pc:track         a owl:DatatypeProperty ; rdfs:label "track" ;        rdfs:domain pc:Session .
+pc:date          a owl:DatatypeProperty ; rdfs:label "date" ;         rdfs:domain pc:Session ; rdfs:range xsd:date .
+pc:implementation a owl:DatatypeProperty ; rdfs:label "implementation" ; rdfs:domain pc:Concept .

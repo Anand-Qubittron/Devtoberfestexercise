@@ -1,0 +1,77 @@
+<mvc:View controllerName="pc.knowledgegraph.controller.Main"
+  xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:core="sap.ui.core"
+  xmlns:ng="sap.suite.ui.commons.networkgraph" xmlns:ngl="sap.suite.ui.commons.networkgraph.layout">
+  <Page showHeader="false" class="sapUiContentPadding">
+    <VBox class="sapUiSmallMargin">
+      <Title text="Ask the knowledge graph" titleStyle="H3"/>
+      <HBox alignItems="Center" wrap="Wrap" class="sapUiTinyMarginTop">
+        <Text text="{view>/statsText}"/>
+        <Link text="Ontology (.ttl)" href="/knowledge-graph/ontology.ttl" class="sapUiSmallMarginBegin"/>
+        <Link text="Data (.nt)" href="/knowledge-graph/data.nt" class="sapUiSmallMarginBegin"/>
+      </HBox>
+
+      <HBox class="sapUiSmallMarginTop" alignItems="Center">
+        <SearchField id="question" width="46rem" value="{view>/question}"
+          placeholder="Ask in plain language, e.g. Which users are affected by supplier S-300?"
+          search=".onAsk"/>
+        <Button text="Ask" type="Emphasized" press=".onAsk" class="sapUiTinyMarginBegin"/>
+      </HBox>
+
+      <Label text="Questions the graph understands (codes like S-100, M-2001 or row 8 can be changed):" class="sapUiSmallMarginTop"/>
+      <FlexBox wrap="Wrap" items="{view>/suggestions}">
+        <Button text="{view>text}" type="Ghost" press=".onSuggestion" class="sapUiTinyMarginEnd sapUiTinyMarginBottom"/>
+      </FlexBox>
+
+      <MessageStrip text="{view>/message}" type="{view>/messageType}" showIcon="true"
+        visible="{= !!${view>/message} }" class="sapUiSmallMarginTop"/>
+    </VBox>
+
+    <IconTabBar id="tabs" selectedKey="{view>/tab}" expandable="false" class="sapUiResponsiveContentPadding"
+      visible="{view>/hasResult}">
+      <items>
+        <IconTabFilter key="answer" text="Answer" count="{= ${view>/rows}.length }" icon="sap-icon://table-view">
+          <Table id="answer" items="{view>/rows}" growing="true" growingThreshold="50" sticky="ColumnHeaders"/>
+        </IconTabFilter>
+        <IconTabFilter key="why" text="Chain of Reasoning" icon="sap-icon://tree">
+          <List items="{view>/reasons}" noDataText="This answer is an aggregation — no single path to show">
+            <CustomListItem>
+              <VBox class="sapUiSmallMargin">
+                <Label text="Answer {view>no}" design="Bold"/>
+                <FlexBox wrap="Wrap" items="{path: 'view>steps', templateShareable: false}">
+                  <ObjectStatus text="{view>}" state="Information" class="sapUiTinyMarginEnd sapUiTinyMarginBottom"/>
+                </FlexBox>
+              </VBox>
+            </CustomListItem>
+          </List>
+        </IconTabFilter>
+        <IconTabFilter key="graph" text="Graph" icon="sap-icon://overview-chart">
+          <MessageStrip text="Only the first 60 entities are drawn." visible="{view>/graph/truncated}" showIcon="true"/>
+          <ng:Graph id="graph" height="620px" orientation="LeftRight" enableWheelZoom="true"
+            nodes="{graph>/nodes}" lines="{graph>/lines}" statuses="{graph>/statuses}"
+            noDataText="Nothing to draw for this answer">
+            <ng:layoutAlgorithm>
+              <ngl:LayeredLayout/>
+            </ng:layoutAlgorithm>
+            <ng:statuses>
+              <ng:Status key="{graph>key}" title="{graph>key}" backgroundColor="{graph>color}" borderColor="{graph>color}" contentColor="white"/>
+            </ng:statuses>
+            <ng:nodes>
+              <ng:Node key="{graph>key}" title="{graph>title}" icon="{graph>icon}" status="{graph>group}"
+                shape="Box" maxWidth="260" showActionLinksButton="false" showExpandButton="false"/>
+            </ng:nodes>
+            <ng:lines>
+              <ng:Line from="{graph>from}" to="{graph>to}" title="{graph>title}" arrowOrientation="ParentOf"/>
+            </ng:lines>
+          </ng:Graph>
+        </IconTabFilter>
+        <IconTabFilter key="sparql" text="SPARQL" icon="sap-icon://syntax">
+          <VBox>
+            <Text text="The SPARQL query behind this answer. Change it and run it — SELECT and ASK only. Results with ?s ?p ?o are drawn as a graph."/>
+            <TextArea value="{view>/sparql}" width="100%" rows="14" class="sapUiTinyMarginTop kgMono"/>
+            <Button text="Run SPARQL" icon="sap-icon://media-play" type="Emphasized" press=".onRunSparql"/>
+          </VBox>
+        </IconTabFilter>
+      </items>
+    </IconTabBar>
+  </Page>
+</mvc:View>

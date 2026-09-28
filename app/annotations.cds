@@ -233,3 +233,44 @@ annotate D.SupplierVH with {
   name       @title: 'Name';
   blocked    @title: 'Blocked';
 };
+
+//
+// ─── Learning Hub ────────────────────────────────────────────────────────────
+//
+using LearningService as L from '../srv/learning-service';
+
+annotate L.Sessions with @(
+  UI.HeaderInfo: { TypeName: 'Session', TypeNamePlural: 'Devtoberfest Sessions', Title: { Value: title }, Description: { Value: track } },
+  UI.SelectionFields: [ track ],
+  UI.PresentationVariant: { SortOrder: [{ Property: date }], Visualizations: ['@UI.LineItem'] },
+  UI.LineItem: [ { Value: date }, { Value: title }, { Value: track }, { Value: summary } ],
+  UI.DataPoint #date:  { Value: date,  Title: 'Date' },
+  UI.DataPoint #track: { Value: track, Title: 'Track' },
+  UI.HeaderFacets: [
+    { $Type: 'UI.ReferenceFacet', Target: '@UI.DataPoint#date' },
+    { $Type: 'UI.ReferenceFacet', Target: '@UI.DataPoint#track' }
+  ],
+  UI.FieldGroup #learned: { Data: [ { Value: summary, Label: 'Session in a nutshell' }, { Value: takeaways, Label: 'Key takeaways' } ] },
+  UI.FieldGroup #built:   { Data: [ { Value: whatIBuilt, Label: 'What I built' } ] },
+  UI.Facets: [
+    { $Type: 'UI.ReferenceFacet', Label: 'What I Learned', Target: '@UI.FieldGroup#learned' },
+    { $Type: 'UI.ReferenceFacet', Label: 'What I Built',   Target: '@UI.FieldGroup#built' },
+    { $Type: 'UI.ReferenceFacet', Label: 'Concepts → Where to See Them', Target: 'concepts/@UI.LineItem' }
+  ]
+) {
+  date       @title: 'Date';
+  title      @title: 'Session';
+  track      @title: 'Track';
+  summary    @title: 'Summary' @UI.MultiLineText;
+  takeaways  @UI.MultiLineText;
+  whatIBuilt @UI.MultiLineText;
+};
+
+annotate L.Concepts with @(
+  UI.LineItem: [
+    { Value: name,           Label: 'Concept' },
+    { Value: implementation, Label: 'How it is implemented' },
+    { $Type: 'UI.DataFieldWithUrl', Value: appTitle, Url: appUrl, Label: 'See it in' },
+    { Value: sourceFile,     Label: 'Source' }
+  ]
+);

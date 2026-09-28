@@ -1,4 +1,20 @@
-# Process Center for CAP
+# Devtoberfest 2026: what I learned, built as one working app
+
+Each Devtoberfest session I attended is turned into a working feature of one local SAP CAP
+application. The **Learning Hub** tile lists every session with what I learned, what I built, and
+links to the apps where you can see it.
+
+| Session | Built | See it in |
+|---|---|---|
+| ABAP Processing Center: Enhancing Custom Development | Process engine: isolated steps, living log, retries, resume, self-healing | Process Monitor, Excel Uploads |
+| What's new with draft handling in RAP | Draft activation as trigger, cross-object locks shared by users and processes | Object Locks, Manage Suppliers |
+| Building your knowledge graph: Knowledge Graphs in Agentic AI | Ontology + live RDF + SPARQL, multi-hop questions with a chain of reasoning | Knowledge Graph |
+
+Everything runs locally: SQLite, mocked users, no BTP services, no AI keys.
+
+---
+
+## Process Center for CAP
 
 Reliable background processing for SAP CAP (Node.js), inspired by the **ABAP Processing Center**
 and the new **RAP draft** features, brought to JavaScript.
@@ -16,8 +32,6 @@ Center turns every business object into a tracked **process instance** that move
 | **Self-healing** | Technical errors (locks, timeouts) are retried automatically with backoff. When a user saves the master data a parked process waits for, that process resumes by itself. |
 | **Draft-aware** | Cross-object locking: editing a supplier locks its materials, running processes lock what they use, and users and processes never overwrite each other. |
 | **Standardised** | A developer writes only the steps and throws `BusinessError` or `TechnicalError`. The engine handles everything else. |
-
-Runs fully locally: SQLite, mocked users, no BTP services.
 
 ## Run it
 
@@ -97,6 +111,28 @@ A step:
 | Hiding draft features in the UI | Fiori manifest setting, or leave `@odata.draft.enabled` off |
 | Collaborative draft | **Not yet.** See the roadmap |
 
+## Knowledge graph
+
+The session showed how an ontology, RDF data and SPARQL let AI agents reason across business
+objects with multi-hop relationships, and explain their answers. Here that runs locally:
+
+| Layer | Session (SAP HANA Cloud) | Here |
+|---|---|---|
+| Ontology | Classes and relationships, curated in VS Code | `srv/knowledge-graph/ontology.ttl`: suppliers, materials, uploads, rows, processes, locks, users, sessions, concepts, apps |
+| RDF data | Loaded into the HANA Cloud knowledge graph engine | `srv/knowledge-graph/rdf.js` regenerates the triples from the CAP database on every question, so the graph is always current |
+| SPARQL engine | HANA Cloud knowledge graph engine | [Oxigraph](https://github.com/oxigraph/oxigraph), embedded (WebAssembly, no server) |
+| Natural language → SPARQL | An LLM translates the question | Offline: a catalogue of business questions matched by keywords, with codes like `S-300`, `M-1001` or `row 8` as parameters (`srv/knowledge-graph/questions.js`), plus a free SPARQL editor |
+| Explainability | Chain of reasoning | Every answer lists the triples it followed and draws them as a network graph |
+
+The ontology and data can be downloaded from the app (`/knowledge-graph/ontology.ttl`,
+`/knowledge-graph/data.nt`). They are standard Turtle and N-Triples, the format you would load into
+SAP HANA Cloud.
+
+**Demo:** open **Knowledge Graph** after an upload has parked some rows, and click *"Which users are
+affected by supplier S-300?"*. The answer follows 4 hops (supplier ← material ← row ← upload →
+user) that would be a 4-table join in SQL. The **Chain of Reasoning** and **Graph** tabs show why;
+the **SPARQL** tab shows the query, which you can change and run.
+
 ## Roadmap
 
 - **Collaborative draft**: a share action, field-level locks and presence (needs a WebSocket
@@ -106,6 +142,7 @@ A step:
 - More triggers: CAP / Event Mesh events and a REST API.
 - Alerts for stuck or failed processes and SLA timers.
 - AI: generate step handlers from a process description, and explain failures in business language.
+- Knowledge graph: free-text questions via an LLM that writes SPARQL from the ontology; load the graph into SAP HANA Cloud.
 
 ## Notes
 

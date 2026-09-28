@@ -105,6 +105,41 @@ test('support cannot skip a step whose result later steps need', async () => {
   assert.equal(res.status, 409)
 })
 
+const ask = async question => JSON.parse((await call('POST', '/knowledge-graph/ask', { body: { question } })).data.value)
+
+test('the knowledge graph explains why rows need attention', async () => {
+  const r = await ask('Which rows need attention and why?')
+  assert.equal(r.questionId, 'needs-attention')
+  assert.equal(r.rows.length, 10) // 5 parked rows in each of the two uploads
+  const waits = r.rows.map(row => row.waitsLabel).sort()
+  assert.ok(waits.includes('M-9999 (does not exist yet)'))
+  assert.ok(waits.includes('S-300 Pacific Plastics Ltd'))
+  assert.match(r.reasons[0].join(' | '), /processed by .* has status → Parked/)
+  assert.ok(r.graph.nodes.length > 0 && r.graph.lines.length > 0)
+})
+
+test('multi-hop: from a blocked supplier to the users it affects', async () => {
+  const r = await ask('who is impacted if S-300 has a problem?')
+  assert.equal(r.interpretedAs, 'Which users are affected by supplier S-300?')
+  assert.deepEqual([...new Set(r.rows.map(row => row.userLabel))], ['alice'])
+  assert.equal(r.reasons[0].length, 4, 'four hops: upload→user, upload→row, row→material, material→supplier')
+})
+
+test('the learning journey is part of the graph', async () => {
+  const r = await ask('What did I build from each Devtoberfest session?')
+  assert.equal(r.rows.length, 13)
+  const origin = await ask('Which sessions are behind the Object Locks app?')
+  assert.deepEqual(origin.rows.map(row => row.sessionLabel), ["What's new with draft handling in RAP"])
+})
+
+test('unknown questions and SPARQL updates are refused', async () => {
+  assert.equal((await ask('what is the weather tomorrow')).understood, false)
+  const update = await call('POST', '/knowledge-graph/sparql', { body: { query: 'DELETE WHERE { ?s ?p ?o }' } })
+  assert.equal(update.status, 400)
+  const stats = await get('/knowledge-graph/stats()')
+  assert.ok(stats.triples > 1000)
+})
+
 test('fixing the data resumes parked processes at the failed step — without duplicates', async () => {
   // 1. create the missing material
   const { data: m } = await call('POST', '/demo/Materials', { body: { materialNo: 'M-9999', description: 'Special alloy', price: 99, supplier_ID: S100 } })

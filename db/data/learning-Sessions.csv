@@ -1,0 +1,15 @@
+ID;date;title;track;summary;takeaways;whatIBuilt
+abap-processing-center;2026-09-21;ABAP Processing Center: Enhancing Custom Development;Extending the Core;"Custom code for mass processing, events, user exits and Excel uploads usually lacks consistent error handling and monitoring. The ABAP Processing Center runs every object through isolated, resumable process steps with a living log, automatic retries and a Fiori monitor.";"Every process step runs in its own isolated session (transactional decoupling)
+Business users see which step failed for which object — no technical logs
+Resume from the failed step after fixing the data, no duplicates
+Self-healing: transient errors are retried automatically
+One standard transition-handler pattern instead of custom error handling per scenario";"A JavaScript port for SAP CAP: a process engine with one transaction per step, business vs. technical errors, retries with backoff, parking with automatic resume when the awaited object is saved, and a Fiori Process Monitor with Resume / Skip Step / Cancel. Demo: an Excel upload of 50 order rows turned into purchase requests."
+rap-draft-handling;2026-09-21;What's new with draft handling in RAP;Extending the Core;"New RAP draft features: collaborative draft, table entities, cross-object draft scope and hiding draft features in OData V4 UIs.";"Collaborative draft lets several users work in one draft with field locks
+Table entities: the CDS entity itself is the persistence
+Cross-object draft scope: editing one object locks dependent objects
+Draft UI features can be hidden for simple CRUD apps";"Draft-enabled Fiori apps in CAP where draft activation starts background processing, a cross-object lock service (editing a supplier locks all its materials) shared by users and running processes, and fix-in-draft-then-resume for parked rows. Collaborative draft is on the roadmap."
+knowledge-graphs;2026-09-22;Building your knowledge graph: The Role of Knowledge Graphs in Agentic AI;Data;"Knowledge graphs close the enterprise readiness gap for AI agents: an ontology defines business concepts and relationships, RDF holds the data, and SPARQL traverses it — enabling multi-hop reasoning with an explainable chain of reasoning. SAP HANA Cloud hosts the knowledge graph engine.";"Ontology = business concepts, classes and relationships (predicates)
+RDF = the data as subject-predicate-object triples
+Multi-hop reasoning replaces complex joins across many tables
+Explainability: every answer comes with its chain of reasoning
+Natural-language questions are translated into SPARQL";"An ontology (Turtle) for the Process Center and this learning journey, RDF generated live from the CAP database, an embedded SPARQL engine, and a Knowledge Graph Explorer that answers business questions with multi-hop SPARQL and shows the chain of reasoning as a graph. Ontology and data export as .ttl, ready for SAP HANA Cloud."
