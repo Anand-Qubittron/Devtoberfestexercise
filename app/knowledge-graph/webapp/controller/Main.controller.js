@@ -26,13 +26,19 @@ sap.ui.define([
     value: ["#556b82", "sap-icon://tag"]
   };
 
+  // light background in the kind's colour: #0070f2 → rgba(0,112,242,0.12)
+  function tint(hex) {
+    var n = parseInt(hex.slice(1), 16);
+    return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + ",0.12)";
+  }
+
   return Controller.extend("pc.knowledgegraph.controller.Main", {
     onInit: function () {
       this._base = this.getOwnerComponent().getManifestEntry("/sap.app/dataSources/kg/uri");
       this._view = new JSONModel({ question: "", suggestions: [], rows: [], reasons: [], tab: "answer", hasResult: false });
       this._graph = new JSONModel({
         nodes: [], lines: [],
-        statuses: Object.keys(KINDS).map(function (k) { return { key: k, color: KINDS[k][0] }; })
+        statuses: Object.keys(KINDS).map(function (k) { return { key: k, color: KINDS[k][0], background: tint(KINDS[k][0]) }; })
       });
       this.getView().setModel(this._view, "view");
       this.getView().setModel(this._graph, "graph");

@@ -36,7 +36,9 @@
     data-sap-ui-async="true"></script>
   <script>
     sap.ui.getCore().attachInit(function () {
-      sap.ushell.Container.createRenderer().placeAt("content");
+      sap.ushell.Container.createRenderer(undefined, true).then(function (renderer) {
+        renderer.placeAt("content");
+      });
     });
   </script>
 </head>

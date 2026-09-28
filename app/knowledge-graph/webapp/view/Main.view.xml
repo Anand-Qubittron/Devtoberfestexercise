@@ -1,6 +1,8 @@
 <mvc:View controllerName="pc.knowledgegraph.controller.Main"
-  xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:core="sap.ui.core"
-  xmlns:ng="sap.suite.ui.commons.networkgraph" xmlns:ngl="sap.suite.ui.commons.networkgraph.layout">
+  xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m"
+  xmlns:ng="sap.suite.ui.commons.networkgraph" xmlns:ngl="sap.suite.ui.commons.networkgraph.layout"
+  displayBlock="true" height="100%">
+  <App>
   <Page showHeader="false" class="sapUiContentPadding">
     <VBox class="sapUiSmallMargin">
       <Title text="Ask the knowledge graph" titleStyle="H3"/>
@@ -30,7 +32,8 @@
       visible="{view>/hasResult}">
       <items>
         <IconTabFilter key="answer" text="Answer" count="{= ${view>/rows}.length }" icon="sap-icon://table-view">
-          <Table id="answer" items="{view>/rows}" growing="true" growingThreshold="50" sticky="ColumnHeaders"/>
+          <!-- columns and rows are bound in the controller, they depend on the question -->
+          <Table id="answer" growing="true" growingThreshold="50" sticky="ColumnHeaders"/>
         </IconTabFilter>
         <IconTabFilter key="why" text="Chain of Reasoning" icon="sap-icon://tree">
           <List items="{view>/reasons}" noDataText="This answer is an aggregation — no single path to show">
@@ -53,7 +56,7 @@
               <ngl:LayeredLayout/>
             </ng:layoutAlgorithm>
             <ng:statuses>
-              <ng:Status key="{graph>key}" title="{graph>key}" backgroundColor="{graph>color}" borderColor="{graph>color}" contentColor="white"/>
+              <ng:Status key="{graph>key}" title="{graph>key}" backgroundColor="{graph>background}" borderColor="{graph>color}" contentColor="#1d2d3e" borderWidth="2px"/>
             </ng:statuses>
             <ng:nodes>
               <ng:Node key="{graph>key}" title="{graph>title}" icon="{graph>icon}" status="{graph>group}"
@@ -74,4 +77,5 @@
       </items>
     </IconTabBar>
   </Page>
+  </App>
 </mvc:View>
