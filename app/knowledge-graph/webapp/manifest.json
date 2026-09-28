@@ -4,18 +4,45 @@
     "id": "pc.knowledgegraph",
     "type": "application",
     "title": "Knowledge Graph Explorer",
-    "applicationVersion": { "version": "0.1.0" },
+    "applicationVersion": {
+      "version": "0.1.0"
+    },
     "dataSources": {
-      "kg": { "uri": "/odata/v4/knowledge-graph/", "type": "JSON" }
+      "kg": {
+        "uri": "/odata/v4/knowledge-graph/",
+        "type": "JSON"
+      }
     }
   },
-  "sap.ui": { "technology": "UI5", "deviceTypes": { "desktop": true, "tablet": true, "phone": true } },
+  "sap.ui": {
+    "technology": "UI5",
+    "deviceTypes": {
+      "desktop": true,
+      "tablet": true,
+      "phone": true
+    }
+  },
   "sap.ui5": {
     "dependencies": {
       "minUI5Version": "1.120.0",
-      "libs": { "sap.m": {}, "sap.ui.core": {}, "sap.ui.layout": {}, "sap.suite.ui.commons": {} }
+      "libs": {
+        "sap.m": {},
+        "sap.ui.core": {},
+        "sap.ui.layout": {},
+        "sap.suite.ui.commons": {
+          "lazy": false
+        }
+      }
     },
-    "contentDensities": { "compact": true, "cozy": true },
-    "rootView": { "viewName": "pc.knowledgegraph.view.Main", "type": "XML", "id": "main" }
+    "contentDensities": {
+      "compact": true,
+      "cozy": true
+    },
+    "rootView": {
+      "viewName": "pc.knowledgegraph.view.Main",
+      "type": "XML",
+      "id": "main",
+      "async": true
+    }
   }
 }
