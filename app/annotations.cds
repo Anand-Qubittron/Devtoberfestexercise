@@ -145,7 +145,7 @@ annotate D.Materials with @(
   materialNo  @title: 'Material';
   description @title: 'Description';
   price       @title: 'Price (EUR)';
-  supplier    @title: 'Supplier' @Common.Text: supplier.name @Common.TextArrangement: #TextFirst
+  supplier    @title: 'Supplier' @Common.Text: supplier.name @Common.TextArrangement: #TextOnly
     @Common.ValueList: { CollectionPath: 'SupplierVH', Parameters: [
     { $Type: 'Common.ValueListParameterInOut', LocalDataProperty: supplier_ID, ValueListProperty: 'ID' },
     { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'supplierNo' },
@@ -218,13 +218,13 @@ annotate D.PurchaseRequests with @(
   prNo     @title: 'Purchase Request';
   quantity @title: 'Quantity';
   amount   @title: 'Amount (EUR)';
-  supplier @title: 'Supplier' @Common.Text: supplier.name
+  supplier @title: 'Supplier' @Common.Text: supplier.name @Common.TextArrangement: #TextOnly
     @Common.ValueList: { CollectionPath: 'SupplierVH', Parameters: [
     { $Type: 'Common.ValueListParameterInOut', LocalDataProperty: supplier_ID, ValueListProperty: 'ID' },
     { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'supplierNo' },
     { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'name' },
     { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'blocked' } ] };
-  material @title: 'Material' @Common.Text: material.materialNo;
+  material @title: 'Material' @Common.Text: material.materialNo @Common.TextArrangement: #TextOnly;
 };
 
 annotate D.SupplierVH with {
