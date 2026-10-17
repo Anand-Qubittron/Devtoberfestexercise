@@ -11,6 +11,8 @@ const BASE = `http://localhost:${PORT}/odata/v4`
 const SAMPLE = path.join(__dirname, '..', 'sample', 'material-orders.xlsx')
 const S100 = '6f1d2c3a-0001-4000-8000-000000000001'
 const S300 = '6f1d2c3a-0001-4000-8000-000000000003'
+// concepts in db/data/learning-Concepts.csv (one line each, after the header)
+const CONCEPTS = fs.readFileSync(path.join(__dirname, '..', 'db', 'data', 'learning-Concepts.csv'), 'utf8').trim().split('\n').length - 1
 let server
 
 const call = async (method, url, { user = 'alice', body, type = 'application/json' } = {}) => {
@@ -105,13 +107,14 @@ test('support cannot skip a step whose result later steps need', async () => {
   assert.equal(res.status, 409)
 })
 
-const ask = async question => JSON.parse((await call('POST', '/knowledge-graph/ask', { body: { question } })).data.value)
+const ask = async (question, user = 'alice') => JSON.parse((await call('POST', '/knowledge-graph/ask', { user, body: { question } })).data.value)
+const kg = async (fn, user = 'alice') => { const r = (await call('GET', `/knowledge-graph/${fn}`, { user })).data; return typeof r.value === 'string' && /^[{[]/.test(r.value) ? JSON.parse(r.value) : r }
 
 test('the knowledge graph explains why rows need attention', async () => {
   const r = await ask('Which rows need attention and why?')
   assert.equal(r.questionId, 'needs-attention')
   assert.equal(r.rows.length, 10) // 5 parked rows in each of the two uploads
-  const waits = r.rows.map(row => row.waitsLabel).sort()
+  const waits = r.rows.map(row => row.waits)
   assert.ok(waits.includes('M-9999 (does not exist yet)'))
   assert.ok(waits.includes('S-300 Pacific Plastics Ltd'))
   assert.match(r.reasons[0].join(' | '), /processed by .* has status → Parked/)
@@ -121,15 +124,77 @@ test('the knowledge graph explains why rows need attention', async () => {
 test('multi-hop: from a blocked supplier to the users it affects', async () => {
   const r = await ask('who is impacted if S-300 has a problem?')
   assert.equal(r.interpretedAs, 'Which users are affected by supplier S-300?')
-  assert.deepEqual([...new Set(r.rows.map(row => row.userLabel))], ['alice'])
+  assert.deepEqual([...new Set(r.rows.map(row => row.user))], ['alice'])
   assert.equal(r.reasons[0].length, 4, 'four hops: upload→user, upload→row, row→material, material→supplier')
+})
+
+test('free questions are understood through the ontology — nothing is pre-written', async () => {
+  const blocked = await ask('Which materials are blocked?') // materials have no block flag: inferred via the supplier
+  assert.equal(blocked.mode, 'free')
+  assert.deepEqual(blocked.rows.map(r => r.material).sort(), ['M-3001 PET granulate 25kg', 'M-3002 PVC tube 3m'])
+  assert.match(blocked.interpretedAs, /Material → supplied by → Supplier = blocked/)
+
+  const perUpload = await ask('How many parked rows per upload?')
+  assert.deepEqual(perUpload.rows.map(r => Number(r.count)), [5, 5])
+
+  const rows = await ask('Show rows 8 and 13')
+  assert.equal(rows.rows.length, 4) // two uploads
+
+  const named = await ask('Which materials does Nordic Steel supply?') // a name, not a code
+  assert.deepEqual(named.rows.map(r => r.material.split(' ')[0]), ['M-1001', 'M-1002', 'M-1003'])
+
+  const origin = await ask('Which sessions are behind the Object Locks app?')
+  assert.deepEqual([...new Set(origin.rows.map(r => r.session))], ["What's new with draft handling in RAP"])
+})
+
+test('SAP and external data are joined through entity resolution, with provenance', async () => {
+  const r = await ask('Which suppliers have high risk events?')
+  assert.deepEqual(r.rows.map(row => row.supplier), ['S-200 Rhein Chemicals GmbH', 'S-300 Pacific Plastics Ltd'])
+  assert.deepEqual(r.sources.map(s => s.label).sort(), ['Entity resolution', 'RiskWatch (external)'])
+  assert.match(r.reasons[0].join(' | '), /same company as .*\[Entity resolution\].*has risk event.*\[RiskWatch \(external\)\]/)
+})
+
+test('each role sees only its named graphs — secure by construction', async () => {
+  const bob = await kg('profile()', 'bob')
+  assert.deepEqual(bob.graphs.filter(g => !g.visible).map(g => g.id), ['finance', 'risk', 'mapping'])
+  assert.ok((await kg('profile()')).graphs.every(g => g.visible), 'alice (Buyer) sees everything')
+
+  const total = await ask('Total amount of purchase requests per supplier', 'bob')
+  assert.equal(total.rows.length, 0)
+  assert.match(total.restricted, /SAP Finance/)
+  const risk = await ask('Which suppliers have high risk events?', 'bob')
+  assert.equal(risk.understood, false)
+  assert.match(risk.message, /not visible for your role: .*RiskWatch/)
+
+  // not even hand-written SPARQL or the data export reach hidden graphs
+  const direct = await call('POST', '/knowledge-graph/sparql', { user: 'bob', body: { query: 'SELECT ?a WHERE { GRAPH <https://devtoberfest.local/graph/finance> { ?pr pc:amount ?a } }' } })
+  assert.equal(JSON.parse(direct.data.value).rows.length, 0)
+  const exported = (await call('GET', '/knowledge-graph/rdf()', { user: 'bob' })).data.value
+  assert.ok(!exported.includes('#amount>') && !exported.includes('/graph/risk>'))
+  assert.ok((await call('GET', '/knowledge-graph/rdf()')).data.value.includes('#amount>'))
+})
+
+test('SHACL validation reports data quality before the data is used for reasoning', async () => {
+  const q = await kg('quality()')
+  assert.equal(q.conforms, false)
+  assert.equal(q.results.filter(r => r.severity === 'Violation' && r.message === 'Quantity must be at least 1').length, 2)
+  assert.ok(q.results.some(r => r.focusLabel === 'S-400 Andes Packaging SA' && r.severity === 'Warning'))
+  assert.ok(q.results.some(r => r.focusLabel.startsWith('BALTIC METALS OY') && r.severity === 'Info'))
+  const bob = await kg('quality()', 'bob')
+  assert.ok(bob.skipped.length > 0 && bob.infos === 0, 'rules on hidden data are skipped, not reported')
+})
+
+test('the graph can be explored node by node — only own entities', async () => {
+  const r = JSON.parse((await call('POST', '/knowledge-graph/explore', { body: { iri: 'https://devtoberfest.local/data/supplier/S-300' } })).data.value)
+  assert.ok(r.rows.some(row => row.relation === 'supplied by' && row.value.startsWith('M-3001')))
+  assert.ok(r.rows.some(row => row.relation === 'same company as' && row.source === 'Entity resolution'))
+  const bad = await call('POST', '/knowledge-graph/explore', { body: { iri: 'https://devtoberfest.local/data/x> } UNION { ?s ?p ?o' } })
+  assert.equal(bad.status, 400)
 })
 
 test('the learning journey is part of the graph', async () => {
   const r = await ask('What did I build from each Devtoberfest session?')
-  assert.equal(r.rows.length, 13)
-  const origin = await ask('Which sessions are behind the Object Locks app?')
-  assert.deepEqual(origin.rows.map(row => row.sessionLabel), ["What's new with draft handling in RAP"])
+  assert.equal(r.rows.length, CONCEPTS)
 })
 
 test('unknown questions and SPARQL updates are refused', async () => {

@@ -9,23 +9,56 @@
       <HBox alignItems="Center" wrap="Wrap" class="sapUiTinyMarginTop">
         <Text text="{view>/statsText}"/>
         <Link text="Ontology (.ttl)" href="/knowledge-graph/ontology.ttl" class="sapUiSmallMarginBegin"/>
-        <Link text="Data (.nt)" href="/knowledge-graph/data.nt" class="sapUiSmallMarginBegin"/>
+        <Link text="Quality rules (.ttl)" href="/knowledge-graph/shapes.ttl" class="sapUiSmallMarginBegin"/>
+        <Link text="My data (.nq)" press=".onDownloadData" class="sapUiSmallMarginBegin"/>
+      </HBox>
+
+      <!-- sources (named graphs) and what the current user may see -->
+      <HBox alignItems="Center" wrap="Wrap" class="sapUiTinyMarginTop">
+        <Label text="Sources for {view>/profile/user}:" class="sapUiTinyMarginEnd"/>
+        <FlexBox wrap="Wrap" items="{view>/profile/graphs}">
+          <ObjectStatus class="sapUiSmallMarginEnd"
+            text="{= ${view>label} + (${view>visible} ? ' · ' + ${view>triples} : ' · hidden (' + ${view>roles} + ' role)') }"
+            icon="{= ${view>visible} ? (${view>kind} === 'non-SAP' ? 'sap-icon://world' : 'sap-icon://database') : 'sap-icon://locked' }"
+            state="{= ${view>visible} ? (${view>kind} === 'non-SAP' ? 'Information' : 'Success') : 'None' }"
+            tooltip="{view>source}"/>
+        </FlexBox>
+      </HBox>
+      <HBox alignItems="Center" class="sapUiTinyMarginTop">
+        <Label text="Data quality (SHACL):" class="sapUiTinyMarginEnd"/>
+        <ObjectStatus active="true" press=".onOpenQuality" text="{view>/qualityText}"
+          state="{= ${view>/quality/violations} > 0 ? 'Error' : ${view>/quality/warnings} > 0 ? 'Warning' : 'Success' }"
+          icon="sap-icon://quality-issue"/>
       </HBox>
 
       <HBox class="sapUiSmallMarginTop" alignItems="Center">
         <SearchField id="question" width="46rem" value="{view>/question}"
-          placeholder="Ask in plain language, e.g. Which users are affected by supplier S-300?"
+          placeholder="Ask anything about suppliers, materials, uploads, rows, users, purchase requests, risk events, sessions …"
           search=".onAsk"/>
         <Button text="Ask" type="Emphasized" press=".onAsk" class="sapUiTinyMarginBegin"/>
       </HBox>
 
-      <Label text="Questions the graph understands (codes like S-100, M-2001 or row 8 can be changed):" class="sapUiSmallMarginTop"/>
+      <Label text="Ask in your own words — for example:" class="sapUiSmallMarginTop"/>
+      <FlexBox wrap="Wrap" items="{view>/examples}">
+        <Button text="{view>}" type="Ghost" press=".onSuggestion" class="sapUiTinyMarginEnd sapUiTinyMarginBottom"/>
+      </FlexBox>
+      <Label text="Featured analyses:" class="sapUiTinyMarginTop"/>
       <FlexBox wrap="Wrap" items="{view>/suggestions}">
-        <Button text="{view>text}" type="Ghost" press=".onSuggestion" class="sapUiTinyMarginEnd sapUiTinyMarginBottom"/>
+        <Button text="{view>text}" type="Transparent" icon="sap-icon://favorite" press=".onSuggestion" class="sapUiTinyMarginEnd sapUiTinyMarginBottom"/>
       </FlexBox>
 
       <MessageStrip text="{view>/message}" type="{view>/messageType}" showIcon="true"
         visible="{= !!${view>/message} }" class="sapUiSmallMarginTop"/>
+      <MessageStrip text="{view>/restricted}" type="Warning" showIcon="true" customIcon="sap-icon://locked"
+        visible="{= !!${view>/restricted} }" class="sapUiTinyMarginTop"/>
+      <HBox alignItems="Center" wrap="Wrap" visible="{= ${view>/sources}.length > 0 }" class="sapUiTinyMarginTop">
+        <Label text="Sources used:" class="sapUiTinyMarginEnd"/>
+        <FlexBox wrap="Wrap" items="{view>/sources}">
+          <ObjectStatus text="{view>label}" class="sapUiSmallMarginEnd"
+            icon="{= ${view>kind} === 'non-SAP' ? 'sap-icon://world' : 'sap-icon://database' }"
+            state="{= ${view>kind} === 'non-SAP' ? 'Information' : 'Success' }"/>
+        </FlexBox>
+      </HBox>
     </VBox>
 
     <IconTabBar id="tabs" selectedKey="{view>/tab}" expandable="false" class="sapUiResponsiveContentPadding"
@@ -48,7 +81,8 @@
           </List>
         </IconTabFilter>
         <IconTabFilter key="graph" text="Graph" icon="sap-icon://overview-chart">
-          <MessageStrip text="Only the first 60 entities are drawn." visible="{view>/graph/truncated}" showIcon="true"/>
+          <MessageStrip text="Hover a node and use + to show everything connected to it. Only the first 60 entities of an answer are drawn."
+            showIcon="true" class="sapUiTinyMarginBottom"/>
           <ng:Graph id="graph" height="620px" orientation="LeftRight" enableWheelZoom="true"
             nodes="{graph>/nodes}" lines="{graph>/lines}" statuses="{graph>/statuses}"
             noDataText="Nothing to draw for this answer">
@@ -60,7 +94,11 @@
             </ng:statuses>
             <ng:nodes>
               <ng:Node key="{graph>key}" title="{graph>title}" icon="{graph>icon}" status="{graph>group}"
-                shape="Box" maxWidth="260" showActionLinksButton="false" showExpandButton="false"/>
+                shape="Box" maxWidth="260" showActionLinksButton="false" showExpandButton="false" showDetailButton="false">
+                <ng:actionButtons>
+                  <ng:ActionButton icon="sap-icon://add" title="Show connections" press=".onExpand" enabled="{= !!${graph>iri} }"/>
+                </ng:actionButtons>
+              </ng:Node>
             </ng:nodes>
             <ng:lines>
               <ng:Line from="{graph>from}" to="{graph>to}" title="{graph>title}" arrowOrientation="ParentOf"/>
@@ -69,8 +107,8 @@
         </IconTabFilter>
         <IconTabFilter key="sparql" text="SPARQL" icon="sap-icon://syntax">
           <VBox>
-            <Text text="The SPARQL query behind this answer. Change it and run it — SELECT and ASK only. Results with ?s ?p ?o are drawn as a graph."/>
-            <TextArea value="{view>/sparql}" width="100%" rows="14" class="sapUiTinyMarginTop kgMono"/>
+            <Text text="The SPARQL query behind this answer — generated from the ontology for free questions. Change it and run it (SELECT and ASK only, on the data you may see). Results with ?s ?p ?o are drawn as a graph."/>
+            <TextArea value="{view>/sparql}" width="100%" rows="16" class="sapUiTinyMarginTop"/>
             <Button text="Run SPARQL" icon="sap-icon://media-play" type="Emphasized" press=".onRunSparql"/>
           </VBox>
         </IconTabFilter>
@@ -78,4 +116,35 @@
     </IconTabBar>
   </Page>
   </App>
+
+  <mvc:dependents>
+    <Dialog id="qualityDialog" title="Data quality — SHACL validation" contentWidth="64rem" resizable="true" draggable="true">
+      <VBox class="sapUiSmallMargin">
+        <Text text="{view>/qualitySummary}"/>
+        <Table items="{view>/quality/results}" sticky="ColumnHeaders" class="sapUiSmallMarginTop"
+          noDataText="All rules are satisfied">
+          <columns>
+            <Column width="7rem"><Text text="Severity"/></Column>
+            <Column><Text text="Object"/></Column>
+            <Column><Text text="Rule"/></Column>
+            <Column width="9rem"><Text text="Property"/></Column>
+          </columns>
+          <items>
+            <ColumnListItem>
+              <ObjectStatus text="{view>severity}"
+                state="{= ${view>severity} === 'Violation' ? 'Error' : ${view>severity} === 'Warning' ? 'Warning' : 'Information' }"/>
+              <Text text="{view>focusLabel}"/>
+              <Text text="{view>message}"/>
+              <Text text="{view>path}"/>
+            </ColumnListItem>
+          </items>
+        </Table>
+        <MessageStrip visible="{= ${view>/quality/skipped}.length > 0 }" showIcon="true" class="sapUiSmallMarginTop"
+          text="{= ${view>/quality/skipped}.length + ' rule(s) were skipped because they check data that is not visible for your role.' }"/>
+      </VBox>
+      <endButton>
+        <Button text="Close" press=".onCloseQuality"/>
+      </endButton>
+    </Dialog>
+  </mvc:dependents>
 </mvc:View>

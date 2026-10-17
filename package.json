@@ -33,10 +33,16 @@
         "kind": "mocked",
         "users": {
           "alice": {
-            "password": "alice"
+            "password": "alice",
+            "roles": [
+              "Buyer"
+            ]
           },
           "bob": {
-            "password": "bob"
+            "password": "bob",
+            "roles": [
+              "Support"
+            ]
           }
         }
       }

@@ -119,10 +119,10 @@ annotate D.Suppliers with @(
   UI.HeaderInfo: { TypeName: 'Supplier', TypeNamePlural: 'Suppliers', Title: { Value: name }, Description: { Value: supplierNo } },
   UI.SelectionFields: [ supplierNo, country, blocked ],
   UI.LineItem: [
-    { Value: supplierNo }, { Value: name }, { Value: country },
+    { Value: supplierNo }, { Value: name }, { Value: country }, { Value: dunsNumber },
     { Value: blocked, Criticality: blockedCriticality }
   ],
-  UI.FieldGroup #main: { Data: [ { Value: supplierNo }, { Value: name }, { Value: country }, { Value: blocked } ] },
+  UI.FieldGroup #main: { Data: [ { Value: supplierNo }, { Value: name }, { Value: country }, { Value: dunsNumber }, { Value: blocked } ] },
   UI.Facets: [
     { $Type: 'UI.ReferenceFacet', Label: 'Supplier', Target: '@UI.FieldGroup#main' },
     { $Type: 'UI.ReferenceFacet', Label: 'Materials (locked while you edit this supplier)', Target: 'materials/@UI.LineItem' }
@@ -131,6 +131,7 @@ annotate D.Suppliers with @(
   supplierNo @title: 'Supplier';
   name       @title: 'Name';
   country    @title: 'Country';
+  dunsNumber @title: 'DUNS Number';
   blocked    @title: 'Blocked for Purchasing';
   ID         @UI.Hidden @Common.Text: name @Common.TextArrangement: #TextOnly;
 };

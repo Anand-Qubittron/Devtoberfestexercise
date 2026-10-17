@@ -8,7 +8,7 @@ links to the apps where you can see it.
 |---|---|---|
 | ABAP Processing Center: Enhancing Custom Development | Process engine: isolated steps, living log, retries, resume, self-healing | Process Monitor, Excel Uploads |
 | What's new with draft handling in RAP | Draft activation as trigger, cross-object locks shared by users and processes | Object Locks, Manage Suppliers |
-| Building your knowledge graph: Knowledge Graphs in Agentic AI | Ontology + live RDF + SPARQL, multi-hop questions with a chain of reasoning | Knowledge Graph |
+| Building your knowledge graph: Knowledge Graphs in Agentic AI | Ontology, named graphs per source, SAP + external data via entity resolution, SHACL quality rules, role-based access, free questions with a chain of reasoning | Knowledge Graph |
 
 Everything runs locally: SQLite, mocked users, no BTP services, no AI keys.
 
@@ -114,24 +114,39 @@ A step:
 ## Knowledge graph
 
 The session showed how an ontology, RDF data and SPARQL let AI agents reason across business
-objects with multi-hop relationships, and explain their answers. Here that runs locally:
+objects with multi-hop relationships and explain their answers. Here that runs locally, built along
+SAP's best practices:
 
-| Layer | Session (SAP HANA Cloud) | Here |
+| Layer / practice | On SAP (HANA Cloud, BDC, Joule) | Here |
 |---|---|---|
-| Ontology | Classes and relationships, curated in VS Code | `srv/knowledge-graph/ontology.ttl`: suppliers, materials, uploads, rows, processes, locks, users, sessions, concepts, apps |
-| RDF data | Loaded into the HANA Cloud knowledge graph engine | `srv/knowledge-graph/rdf.js` regenerates the triples from the CAP database on every question, so the graph is always current |
+| Ontology | Classes and relationships, reusing business semantics | `srv/knowledge-graph/ontology.ttl` (OWL), with synonyms as `skos:altLabel` |
+| RDF data, provenance | Loaded into the HANA Cloud knowledge graph engine, per source | `rdf.js` regenerates the triples on every question, **one named graph per source**: SAP Purchasing, SAP Finance, Process Center, Learning Hub, RiskWatch (external), Entity resolution |
+| SAP + non-SAP data | Harmonising data products with external data | A simulated third-party supplier risk feed (`sources/riskwatch-feed.json`) is linked to SAP suppliers by **DUNS number** in its own mapping graph |
+| Data quality | Validate before reasoning | W3C **SHACL** rules (`shapes.ttl`), each checked as a SPARQL query (`shacl.js`), shown in the *Data quality* dialog |
+| Authorization | The graph must not reveal more than the sources would | Each user's graph only contains the named graphs their roles allow (`store.js`), so no generated or hand-written query can reach the rest |
 | SPARQL engine | HANA Cloud knowledge graph engine | [Oxigraph](https://github.com/oxigraph/oxigraph), embedded (WebAssembly, no server) |
-| Natural language → SPARQL | An LLM translates the question | Offline: a catalogue of business questions matched by keywords, with codes like `S-300`, `M-1001` or `row 8` as parameters (`srv/knowledge-graph/questions.js`), plus a free SPARQL editor |
-| Explainability | Chain of reasoning | Every answer lists the triples it followed and draws them as a network graph |
+| Natural language → SPARQL | An LLM writes SPARQL from the ontology | **Ontology-driven and offline** (`nlq.js`): words are matched to ontology labels and synonyms, names and codes to entities, and the shortest path through the schema becomes the SPARQL. Every interpretation is shown. Plus featured questions and a free SPARQL editor |
+| Explainability | Chain of reasoning | Every answer lists the triples it followed, **with the source of each step**, and draws them as a network graph; any node can be expanded |
 
-The ontology and data can be downloaded from the app (`/knowledge-graph/ontology.ttl`,
-`/knowledge-graph/data.nt`). They are standard Turtle and N-Triples, the format you would load into
-SAP HANA Cloud.
+**Users and roles** (mocked): **alice** is a *Buyer* and sees everything; **bob** is *Support* and
+does not see SAP Finance (prices, amounts), RiskWatch or Entity resolution. Asking as bob for
+amounts or risks explains which sources are hidden, instead of giving a silently incomplete answer.
 
-**Demo:** open **Knowledge Graph** after an upload has parked some rows, and click *"Which users are
-affected by supplier S-300?"*. The answer follows 4 hops (supplier ← material ← row ← upload →
-user) that would be a 4-table join in SQL. The **Chain of Reasoning** and **Graph** tabs show why;
-the **SPARQL** tab shows the query, which you can change and run.
+**Downloads:** the ontology and the quality rules are public (`/knowledge-graph/ontology.ttl`,
+`/knowledge-graph/shapes.ttl`); *My data (.nq)* exports the user's own graph as N-Quads. All are
+standard formats that SAP HANA Cloud's knowledge graph engine can load.
+
+**Demo (after an upload has parked some rows):**
+1. As alice, ask *"Which suppliers have high risk events?"*. The answer goes SAP supplier → same
+   company (DUNS) → external record → risk event; *Sources used* and the *Chain of Reasoning* show
+   which step came from SAP and which from the external feed.
+2. Ask *"Which materials are blocked?"*. Materials have no block flag; the graph infers it through
+   their supplier.
+3. In the *Graph* tab, use **+** on a node to explore its neighbours.
+4. Open *Data quality*: the uploaded file's row with quantity 0 is a violation, and S-400 has no
+   DUNS number, so it cannot be matched with the risk feed.
+5. Repeat question 1 as bob (private window): the answer explains that the needed sources are
+   hidden for his role.
 
 ## Roadmap
 
@@ -142,7 +157,7 @@ the **SPARQL** tab shows the query, which you can change and run.
 - More triggers: CAP / Event Mesh events and a REST API.
 - Alerts for stuck or failed processes and SLA timers.
 - AI: generate step handlers from a process description, and explain failures in business language.
-- Knowledge graph: free-text questions via an LLM that writes SPARQL from the ontology; load the graph into SAP HANA Cloud.
+- Knowledge graph: an LLM (SAP Generative AI Hub) for questions the ontology-driven parser does not cover, with the generated SPARQL validated before it runs; load the graph into SAP HANA Cloud; expose it to agents as MCP tools.
 
 ## Notes
 

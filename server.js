@@ -4,15 +4,13 @@ const pc = require('./srv/process-center/engine')
 // process definitions register themselves with the engine
 require('./srv/processes/material-order-import')
 
-// ontology and live RDF data as files — the same Turtle could be loaded into SAP HANA Cloud
+// ontology and data-quality rules are public files — the same Turtle could be loaded into SAP HANA Cloud.
+// The data itself is only served through the knowledge graph service, which applies the user's access.
 cds.on('bootstrap', app => {
   app.get('/knowledge-graph/ontology.ttl', (_, res) =>
     res.type('text/turtle').attachment('ontology.ttl').send(require('./srv/knowledge-graph/store').ontology))
-  app.get('/knowledge-graph/data.nt', async (_, res, next) => {
-    try {
-      res.type('application/n-triples').attachment('data.nt').send(await require('./srv/knowledge-graph/rdf').generate())
-    } catch (e) { next(e) }
-  })
+  app.get('/knowledge-graph/shapes.ttl', (_, res) =>
+    res.type('text/turtle').attachment('shapes.ttl').send(require('./srv/knowledge-graph/shacl').SHAPES))
 })
 
 cds.on('served', () => pc.startScheduler(cds.env.processCenter))

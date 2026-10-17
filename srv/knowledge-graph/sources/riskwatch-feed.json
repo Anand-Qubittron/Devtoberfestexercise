@@ -1,0 +1,45 @@
+{
+  "_comment": "Simulated export of a third-party supplier risk provider ('RiskWatch'). Not SAP data: own field names, own company names — only the DUNS number links it to SAP suppliers. Fictional companies and events.",
+  "provider": "RiskWatch",
+  "exportedAt": "2026-10-15",
+  "companies": [
+    {
+      "duns": "354812907",
+      "legalName": "NORDIC STEEL AKTIEBOLAG",
+      "countryIso": "SE",
+      "events": [
+        { "id": "RW-2026-0412", "date": "2026-10-02", "category": "Logistics", "severity": "Medium",
+          "title": "Port strike delays outbound steel shipments by up to two weeks" }
+      ]
+    },
+    {
+      "duns": "617250394",
+      "legalName": "RHEIN CHEMICALS GESELLSCHAFT MBH",
+      "countryIso": "DE",
+      "events": [
+        { "id": "RW-2026-0388", "date": "2026-09-21", "category": "ESG", "severity": "High",
+          "title": "Environmental compliance investigation opened at main production site" },
+        { "id": "RW-2026-0431", "date": "2026-10-09", "category": "Financial", "severity": "Low",
+          "title": "Quarterly results slightly below market expectations" }
+      ]
+    },
+    {
+      "duns": "882046113",
+      "legalName": "PACIFIC PLASTICS LIMITED",
+      "countryIso": "SG",
+      "events": [
+        { "id": "RW-2026-0350", "date": "2026-09-12", "category": "Financial", "severity": "High",
+          "title": "Credit rating downgraded after missed bond payment" }
+      ]
+    },
+    {
+      "duns": "741093385",
+      "legalName": "BALTIC METALS OY",
+      "countryIso": "FI",
+      "events": [
+        { "id": "RW-2026-0402", "date": "2026-09-28", "category": "Sanctions", "severity": "High",
+          "title": "Listed on an international trade sanctions watchlist" }
+      ]
+    }
+  ]
+}

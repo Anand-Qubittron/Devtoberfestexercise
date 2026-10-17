@@ -1,0 +1,61 @@
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix pc:   <https://devtoberfest.local/ontology#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix g:    <https://devtoberfest.local/graph/> .
+
+# Data quality rules (W3C SHACL). They are checked before the graph is used for reasoning:
+# an agent should not draw conclusions from data that breaks the business rules.
+#
+# pc:requiresGraph marks rules about restricted data — they are skipped (not reported as
+# violations) for users who cannot see that named graph.
+
+pc:MaterialShape a sh:NodeShape ;
+  sh:targetClass pc:Material ;
+  sh:property [ sh:path pc:suppliedBy ; sh:minCount 1 ; sh:maxCount 1 ; sh:class pc:Supplier ;
+                sh:severity sh:Violation ; sh:message "Every material needs exactly one supplier" ] ;
+  sh:property [ sh:path pc:price ; sh:minCount 1 ; sh:datatype xsd:decimal ; pc:requiresGraph g:finance ;
+                sh:severity sh:Warning ; sh:message "Material has no price" ] .
+
+pc:SupplierShape a sh:NodeShape ;
+  sh:targetClass pc:Supplier ;
+  sh:property [ sh:path pc:blocked ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:boolean ;
+                sh:severity sh:Violation ; sh:message "Purchasing block status must be set exactly once" ] ;
+  sh:property [ sh:path pc:dunsNumber ; sh:minCount 1 ;
+                sh:severity sh:Warning ; sh:message "No DUNS number — the supplier cannot be matched with external risk data" ] ;
+  sh:property [ sh:path pc:sameEntityAs ; sh:minCount 1 ; pc:requiresGraph g:mapping ;
+                sh:severity sh:Info ; sh:message "Not found at the external risk provider" ] .
+
+pc:UploadRowShape a sh:NodeShape ;
+  sh:targetClass pc:UploadRow ;
+  sh:property [ sh:path pc:orders ; sh:minCount 1 ;
+                sh:severity sh:Warning ; sh:message "Row orders a material that does not exist" ] ;
+  sh:property [ sh:path pc:quantity ; sh:minInclusive 1 ;
+                sh:severity sh:Violation ; sh:message "Quantity must be at least 1" ] ;
+  sh:property [ sh:path pc:processedBy ; sh:maxCount 1 ;
+                sh:severity sh:Violation ; sh:message "A row is processed by at most one process" ] .
+
+pc:PurchaseRequestShape a sh:NodeShape ;
+  sh:targetClass pc:PurchaseRequest ;
+  sh:property [ sh:path pc:forMaterial ; sh:minCount 1 ; sh:maxCount 1 ; sh:class pc:Material ;
+                sh:severity sh:Violation ; sh:message "A purchase request is for exactly one material" ] ;
+  sh:property [ sh:path pc:fromSupplier ; sh:minCount 1 ; sh:maxCount 1 ; sh:class pc:Supplier ;
+                sh:severity sh:Violation ; sh:message "A purchase request has exactly one supplier" ] ;
+  sh:property [ sh:path pc:amount ; sh:minCount 1 ; sh:datatype xsd:decimal ; pc:requiresGraph g:finance ;
+                sh:severity sh:Violation ; sh:message "A purchase request needs an amount" ] .
+
+pc:ProcessShape a sh:NodeShape ;
+  sh:targetClass pc:Process ;
+  sh:property [ sh:path pc:hasStatus ; sh:minCount 1 ; sh:maxCount 1 ; sh:class pc:ProcessStatus ;
+                sh:severity sh:Violation ; sh:message "A process has exactly one status" ] .
+
+pc:RiskEventShape a sh:NodeShape ;
+  sh:targetClass pc:RiskEvent ;
+  sh:property [ sh:path pc:riskLevel ; sh:minCount 1 ; sh:in ( "High" "Medium" "Low" ) ; pc:requiresGraph g:risk ;
+                sh:severity sh:Violation ; sh:message "Risk level must be High, Medium or Low" ] ;
+  sh:property [ sh:path pc:reportedOn ; sh:datatype xsd:date ; pc:requiresGraph g:risk ;
+                sh:severity sh:Violation ; sh:message "Report date must be a date" ] .
+
+pc:ExternalCompanyShape a sh:NodeShape ;
+  sh:targetClass pc:ExternalCompany ;
+  sh:property [ sh:path [ sh:inversePath pc:sameEntityAs ] ; sh:minCount 1 ; pc:requiresGraph g:mapping ;
+                sh:severity sh:Info ; sh:message "External company is not one of our suppliers (no DUNS match)" ] .

@@ -7,6 +7,7 @@ entity Suppliers : cuid, managed {
   supplierNo : String(10) @mandatory;
   name       : String(100) @mandatory;
   country    : String(3);
+  dunsNumber : String(9);   // global company ID, links the supplier to external data
   blocked    : Boolean default false;
   blockedCriticality : Integer = (blocked = true ? 1 : 3);
   materials  : Association to many Materials on materials.supplier = $self;
