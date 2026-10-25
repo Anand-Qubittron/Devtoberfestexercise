@@ -47,11 +47,15 @@ npm test          # end-to-end test (own in-memory database)
 Log in as **alice / alice** or **bob / bob**. Use a second browser (or a private window) for the
 second user. `npm run deploy` resets the database.
 
-**Both users at once, locally:** `npm run demo` starts `cds watch` and opens the launchpad twice:
-alice on `http://alice.localhost:4004` and bob on `http://bob.localhost:4004`, already logged in.
-Browsers keep separate logins per address, so the two windows stay separate. This uses
-`/demo-login?user=…`, which only exists with the mocked users; with real authentication it is not
-there. In BAS, open `<your BAS URL>/demo-login?user=bob` in a private window instead.
+**Both users at once:** `npm run demo` starts `cds watch` for alice and bob side by side, already
+logged in, in normal tabs of one browser. Browsers keep separate logins per address:
+
+- **SAP Business Application Studio:** the app also listens on port 4005, and every port has its own
+  address. Open `https://port4004-<workspace>/demo-login?user=alice` and
+  `https://port4005-<workspace>/demo-login?user=bob` (the command prints both links).
+- **Locally:** it opens `http://alice.localhost:4004` and `http://bob.localhost:4004`.
+
+`/demo-login?user=…` only exists with the mocked users; with real authentication it is not there.
 
 ## Demo script (about 5 minutes)
 
