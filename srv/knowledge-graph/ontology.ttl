@@ -14,7 +14,7 @@
 
 <https://devtoberfest.local/ontology> a owl:Ontology ;
   rdfs:label "Devtoberfest Process Center ontology" ;
-  owl:versionInfo "2.0" .
+  owl:versionInfo "2.1" .
 
 # ─── Purchasing (SAP) ────────────────────────────────────────────────────────
 pc:Supplier        a owl:Class ; rdfs:label "Supplier" ;         skos:altLabel "vendor" .
@@ -31,7 +31,7 @@ pc:fromSupplier a owl:ObjectProperty ; rdfs:label "from supplier" ; rdfs:domain 
 pc:blocked      a owl:DatatypeProperty ; rdfs:label "blocked" ;     rdfs:domain pc:Supplier ;  rdfs:range xsd:boolean .
 pc:dunsNumber   a owl:DatatypeProperty ; rdfs:label "DUNS number" ; rdfs:range xsd:string ;
   rdfs:comment "Global company identifier — used to match SAP suppliers with external data" .
-pc:price        a owl:DatatypeProperty ; rdfs:label "price" ;       rdfs:domain pc:Material ;  rdfs:range xsd:decimal .
+pc:price        a owl:DatatypeProperty ; rdfs:label "price" ;       skos:altLabel "cost" ; rdfs:domain pc:Material ;  rdfs:range xsd:decimal .
 pc:quantity     a owl:DatatypeProperty ; rdfs:label "quantity" ;    rdfs:range xsd:integer .
 pc:amount       a owl:DatatypeProperty ; rdfs:label "amount" ;      skos:altLabel "value", "spend", "volume" ;
   rdfs:domain pc:PurchaseRequest ; rdfs:range xsd:decimal .
@@ -43,7 +43,7 @@ pc:User          a owl:Class ; rdfs:label "User" ;         skos:altLabel "person
 pc:Process       a owl:Class ; rdfs:label "Process" ;      skos:altLabel "process instance", "job" .
 pc:Lock          a owl:Class ; rdfs:label "Lock" ;         skos:altLabel "object lock" .
 pc:ProcessStatus a owl:Class ; rdfs:label "Process status" ; skos:altLabel "status" .
-pc:MissingObject a owl:Class ; rdfs:label "Missing object" ; skos:altLabel "missing" ;
+pc:MissingObject a owl:Class ; rdfs:label "Missing object" ; skos:altLabel "missing", "missing material" ;
   rdfs:comment "Something a parked process waits for that does not exist yet, e.g. a material number nobody has created" .
 
 pc:hasRow       a owl:ObjectProperty ; rdfs:label "has row" ;      rdfs:domain pc:Upload ;    rdfs:range pc:UploadRow .

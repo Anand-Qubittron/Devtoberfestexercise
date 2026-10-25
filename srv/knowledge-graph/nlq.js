@@ -55,7 +55,11 @@ function lexicon(store) {
   const schemaEdges = rows(store, `PREFIX owl: <http://www.w3.org/2002/07/owl#>
     SELECT ?d ?p ?r WHERE { ?p a owl:ObjectProperty ; rdfs:domain ?d ; rdfs:range ?r }`)
     .map(b => ({ from: b.d.value, prop: b.p.value, to: b.r.value }))
-  return { classes, classLabel, props, propLabel, edges, attributes, measures, schemaEdges }
+  // properties that can be compared with a number ("quantity 0", "amount over 5000")
+  const numeric = new Set(rows(store, `PREFIX owl: <http://www.w3.org/2002/07/owl#>
+    SELECT ?p WHERE { ?p a owl:DatatypeProperty ; rdfs:range ?r . FILTER(?r IN (<${XSD}decimal>, <${XSD}integer>) && ?p != pc:rowNumber) }`)
+    .map(b => b.p.value))
+  return { classes, classLabel, props, propLabel, edges, attributes, measures, schemaEdges, numeric }
 }
 
 /** Things mentioned by name: entities in the data, statuses, literal values. */
@@ -96,8 +100,34 @@ function entityIndex(store) {
   return aliases
 }
 
+const OPS = [['more than', '>'], ['greater than', '>'], ['higher than', '>'], ['over', '>'], ['above', '>'], ['at least', '>='],
+  ['less than', '<'], ['lower than', '<'], ['below', '<'], ['under', '<'], ['at most', '<='], ['up to', '<=']]
+const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/** "quantity 0", "amount over 5000", "price below 20" — removed from the question once recognised. */
+function comparisons(question, lex) {
+  let base = ' ' + question.replace(/(\d),(\d{3})\b/g, '$1$2').replace(/\bzero\b/gi, '0') + ' '
+  const compares = []
+  for (const [term, prop] of [...lex.props].sort((a, b) => b[0].length - a[0].length)) {
+    if (!lex.numeric.has(prop)) continue
+    const ops = OPS.map(([words]) => escape(words)).join('|')
+    const re = new RegExp(`\\s(?:an? |the )?${escape(term)}\\s+(?:is |of |= ?|equal to |equals )?(?:(${ops}) )?(-?\\d+(?:\\.\\d+)?)(?=[\\s?!.,;:)])`)
+    const m = re.exec(base.toLowerCase())
+    if (!m) continue
+    compares.push({ prop, op: OPS.find(([words]) => words === m[1])?.[1] ?? '=', value: Number(m[2]) })
+    base = base.slice(0, m.index) + ' '.repeat(m[0].length) + base.slice(m.index + m[0].length)
+  }
+  return { compares, rest: base }
+}
+
+// "no DUNS number", "without purchase requests", "do not have a price"
+const NEGATED = / (?:no|without|without an?|without any|not have|not have an?|not have any)$/
+const negatedAt = (text, at) => NEGATED.test(text.slice(0, at))
+
 /** Finds non-overlapping mentions, longest first. */
 function scan(question, lex, aliases) {
+  const { compares, rest } = comparisons(question, lex)
+  question = rest
   const text = norm(question), taken = []
   const free = (i, n) => !taken.some(([a, b]) => i < b && a < i + n)
   const find = (term, caseSensitive) => {
@@ -108,7 +138,7 @@ function scan(question, lex, aliases) {
     while ((i = hay.indexOf(needle, i + 1)) >= 0) if (free(i + 1, needle.length - 2)) { taken.push([i + 1, i + needle.length - 1]); return i }
     return -1
   }
-  const found = { entities: [], literals: [], classes: [], props: [], rowNumbers: [], booleans: [] }
+  const found = { entities: [], literals: [], classes: [], props: [], rowNumbers: [], booleans: [], compares, absent: [] }
 
   // "row 13", "rows 7 and 8"
   for (const m of text.matchAll(/ rows? (\d+)(?: (?:and|,) (\d+))? /g)) {
@@ -127,9 +157,15 @@ function scan(question, lex, aliases) {
   }
   for (const [term, cls] of [...lex.classes].sort((a, b) => b[0].length - a[0].length)) {
     const at = find(term)
-    if (at >= 0) found.classes.push({ cls, term, at })
+    if (at >= 0) found.classes.push({ cls, term, at, negated: negatedAt(text, at) })
   }
-  for (const [term, prop] of lex.props) if (find(term) >= 0) found.props.push(prop)
+  for (const [term, prop] of lex.props) {
+    const at = find(term)
+    if (at < 0) continue
+    found.props.push(prop)
+    if (negatedAt(text, at)) found.absent.push(prop)
+  }
+  for (const c of compares) found.props.push(c.prop)
   found.classes.sort((a, b) => a.at - b.at)
   return found
 }
@@ -165,6 +201,13 @@ function understand(question, store) {
   const count = / how many | number of | count /.test(text)
   const sum = / total | sum | how much /.test(text) && !count
   const describe = / tell me about | what do (we|you) know about | describe | details (of|for|about) /.test(text)
+  const why = / why | reason /.test(text)
+
+  // a missing material is not a Material (yet) — "which materials are missing" asks for the missing objects
+  if (f.classes.some(c => c.cls === PC + 'MissingObject')) f.classes = f.classes.filter(c => c.cls !== PC + 'Material')
+  // "materials without purchase requests": the negated class is a condition, not what is asked for
+  const negated = f.classes.filter(c => c.negated).map(c => c.cls)
+  f.classes = f.classes.filter(c => !c.negated)
 
   // anchors: everything the question pins down
   const anchors = []
@@ -196,6 +239,20 @@ function understand(question, store) {
     if (!target) return null
   }
 
+  // conditions on values: on the thing asked for when it has the property, otherwise on a class mentioned
+  const owner = prop => {
+    const has = lex.attributes.filter(a => a.prop === prop).map(a => a.cls)
+    return has.includes(target) ? target : f.classes.map(c => c.cls).find(c => has.includes(c)) ?? has[0]
+  }
+  for (const c of [...f.compares, ...f.absent.map(prop => ({ prop, absent: true }))]) {
+    const cls = owner(c.prop), name = lex.propLabel.get(c.prop) ?? local(c.prop)
+    // the property exists in the ontology, but not in any data this user can see
+    if (!cls) return { error: `I can't see ${name} in the data you can see.`, needs: [c.prop] }
+    anchors.push(c.absent
+      ? { kind: 'absent', cls, prop: c.prop, labels: [`no ${name}`] }
+      : { kind: 'compare', cls, prop: c.prop, op: c.op, value: c.value, labels: [`${name} ${c.op === '=' ? '' : c.op + ' '}${c.value}`] })
+  }
+
   // paths: target → every anchor, and target → classes mentioned along the way
   const preferred = new Set(f.props)
   const hints = f.classes.map(c => c.cls).filter(c => c !== target && c !== groupClass && !anchors.some(a => a.cls === c))
@@ -221,30 +278,53 @@ function understand(question, store) {
       needs: inOntology?.map(s => s.prop) ?? []
     }
   }
+  for (const n of negated) {
+    if (n === target) continue
+    const path = shortestPath(lex.edges, target, n, preferred)
+    if (!path) return {
+      error: `I can't connect ${lex.classLabel.get(target)} with ${lex.classLabel.get(n)} in the data you can see.`,
+      needs: shortestPath(lex.schemaEdges, target, n, preferred)?.map(s => s.prop) ?? []
+    }
+    plans.push({ path, anchor: null, negate: n })
+  }
   let groupPath = null
   if (groupClass && groupClass !== target) {
     groupPath = shortestPath(lex.edges, target, groupClass, preferred)
     if (!groupPath) return { error: `I don't see a connection between ${lex.classLabel.get(target)} and ${lex.classLabel.get(groupClass)}.` }
     plans.push({ path: groupPath, anchor: null, group: true })
   }
-  return { target, plans, count, sum, measure, groupClass, lex }
+  // asking why, or about a status: show the process's reason and what it waits for
+  const reasons = why || anchors.some(a => a.cls === PC + 'ProcessStatus')
+  return { target, plans, count, sum, measure, groupClass, reasons, lex }
 }
 
 /** Turns an interpretation into SPARQL + the chain of reasoning. */
 function toSparql(u) {
   const { lex } = u
-  const names = new Map(), used = new Set()
+  const names = new Map(), used = new Set(), classOf = new Map()
   const varFor = (signature, cls) => {
     if (names.has(signature)) return names.get(signature)
     let base = local(cls).replace(/^./, c => c.toLowerCase()), name = base, i = 2
     while (used.has(name)) name = base + i++
-    used.add(name); names.set(signature, name); return name
+    used.add(name); names.set(signature, name); classOf.set(name, cls); return name
   }
   const t = varFor('', u.target)
   const where = [`?${t} a <${u.target}> .`], chain = [], labelled = new Set([t]), filters = []
   let groupVar = null
 
   for (const plan of u.plans) {
+    // "without …": the path must not exist — its variables are not part of the answer
+    if (plan.negate) {
+      const inner = []
+      let cur = t
+      plan.path.forEach((step, i) => {
+        const next = i === plan.path.length - 1 ? varFor('!' + plan.negate, step.toCls) : `${t}_no${u.plans.indexOf(plan)}_${i}`
+        inner.push(step.forward ? `?${cur} <${step.prop}> ?${next} .` : `?${next} <${step.prop}> ?${cur} .`)
+        cur = next
+      })
+      filters.push(`FILTER NOT EXISTS { ${inner.join(' ')} ?${cur} a <${plan.negate}> . }`)
+      continue
+    }
     let sig = '', cur = t
     for (const step of plan.path) {
       sig += `|${step.forward ? '' : '^'}${step.prop}`
@@ -263,6 +343,12 @@ function toSparql(u) {
     if (!a) continue
     if (a.kind === 'iris') {
       where.push(`VALUES ?${cur} { ${a.iris.map(i => `<${i}>`).join(' ')} }`)
+    } else if (a.kind === 'compare') {
+      const v = `${cur}_${local(a.prop)}`
+      where.push(`?${cur} <${a.prop}> ?${v} .`); filters.push(`FILTER(?${v} ${a.op} ${a.value})`)
+      chain.push([cur, a.prop, '=' + (a.op === '=' ? '' : a.op + ' ') + a.value])
+    } else if (a.kind === 'absent') {
+      filters.push(`FILTER NOT EXISTS { ?${cur} <${a.prop}> ?${cur}_${local(a.prop)} }`)
     } else {
       const values = [].concat(a.value)
       const lit = v => a.datatype === 'boolean' ? String(v) : a.datatype === 'integer' ? String(v) : JSON.stringify(v)
@@ -291,9 +377,19 @@ function toSparql(u) {
   }
 
   // a few attributes of the thing asked for make the answer self-explanatory
-  const attrs = lex.attributes.filter(a => a.cls === u.target && !['orderedMaterialNo', 'dunsNumber', 'implementation', 'headline'].includes(local(a.prop))).slice(0, 4)
+  const attrs = lex.attributes.filter(a => a.cls === u.target && !['orderedMaterialNo', 'dunsNumber', 'implementation', 'headline', 'message'].includes(local(a.prop))).slice(0, 4)
   const attrLines = attrs.map(a => `  OPTIONAL { ?${t} <${a.prop}> ?${local(a.prop)} }`)
   const select = [...labelled].map(v => `?${v} ?${v}Label`).concat(attrs.map(a => '?' + local(a.prop)))
+  if (u.reasons) {
+    // the process of the answer — on the path, or reached from an upload row
+    let proc = [...labelled].find(v => classOf.get(v) === PC + 'Process')
+    if (!proc && u.target === PC + 'UploadRow') { proc = `${t}_process`; attrLines.push(`  OPTIONAL { ?${t} <${PC}processedBy> ?${proc} }`) }
+    if (proc) {
+      attrLines.push(`  OPTIONAL { ?${proc} <${PC}message> ?reason }`,
+        `  OPTIONAL { ?${proc} <${PC}waitsFor> ?waitingFor . OPTIONAL { ?waitingFor rdfs:label ?waitingForLabel } }`)
+      select.push('?reason', '?waitingFor ?waitingForLabel')
+    }
+  }
   const sparql = `SELECT DISTINCT ${select.join(' ')} WHERE {\n${body}\n${attrLines.join('\n')}\n} ORDER BY ?${t}Label LIMIT 200`
   return { sparql, chain, target: t }
 }
@@ -304,9 +400,10 @@ function describePlan(u) {
   const parts = u.plans.filter(p => !p.group).map(p => {
     let s = ''
     for (const step of p.path) s += ` → ${u.lex.propLabel.get(step.prop) ?? local(step.prop)}${step.forward ? '' : ' (inverse)'} → ${name(step.toCls)}`
+    if (p.negate) return ` has no${s}`
     const a = p.anchor
-    if (a) s += ` = ${a.labels.join(' / ')}`
-    return s || (a ? ` = ${a.labels.join(' / ')}` : '')
+    if (a) s += ['compare', 'absent'].includes(a.kind) ? ` with ${a.labels[0]}` : ` = ${a.labels.join(' / ')}`
+    return s
   })
   const what = u.sum ? `Total ${u.lex.propLabel.get(u.measure?.prop) ?? 'amount'} of ${name(u.target)}`
     : u.count ? `Number of ${name(u.target)}` : name(u.target)

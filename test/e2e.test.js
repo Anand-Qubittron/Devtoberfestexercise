@@ -147,6 +147,36 @@ test('free questions are understood through the ontology — nothing is pre-writ
   assert.deepEqual([...new Set(origin.rows.map(r => r.session))], ["What's new with draft handling in RAP"])
 })
 
+test('values, absence, missing objects and reasons are understood too', async () => {
+  const zero = await ask('Which rows have quantity 0?')
+  assert.equal(zero.rows.length, 2) // one per upload
+  assert.match(zero.interpretedAs, /with quantity 0/)
+  const expensive = await ask('Which materials cost more than 50?') // "cost" is a synonym of price
+  assert.deepEqual(expensive.rows.map(r => r.material.split(' ')[0]).sort(), ['M-2002', 'M-3001'])
+
+  const noDuns = await ask('Which suppliers have no DUNS number?')
+  assert.deepEqual(noDuns.rows.map(r => r.supplier), ['S-400 Andes Packaging SA'])
+  const unordered = await ask('Which materials have no purchase requests?') // S-300 is blocked, so its rows are parked
+  assert.deepEqual(unordered.rows.map(r => r.material.split(' ')[0]).sort(), ['M-3001', 'M-3002'])
+
+  const missing = await ask('Which materials are missing?')
+  assert.deepEqual(missing.rows.map(r => r.missingObject), ['M-9999 (does not exist yet)'])
+  const why = await ask('Why are rows parked?')
+  assert.equal(why.rows.length, 10)
+  assert.ok(why.rows.every(r => r.reason), 'every parked row comes with the reason')
+  assert.ok(why.rows.some(r => /blocked/.test(r.reason) && r.waitingFor === 'S-300 Pacific Plastics Ltd'))
+
+  const overview = await ask('How is each upload doing?')
+  assert.equal(overview.questionId, 'upload-overview')
+  assert.deepEqual(overview.rows.map(r => [Number(r.rows), Number(r.parked)]), [[50, 5], [50, 5]])
+  const exposed = await ask('Which uploads order from suppliers with high risk events?')
+  assert.deepEqual([...new Set(exposed.rows.map(r => r.supplier))].sort(), ['S-200 Rhein Chemicals GmbH', 'S-300 Pacific Plastics Ltd'])
+
+  const bob = await ask('Which purchase requests have an amount over 5000?', 'bob')
+  assert.equal(bob.understood, false)
+  assert.match(bob.message, /not visible for your role: SAP Finance/)
+})
+
 test('SAP and external data are joined through entity resolution, with provenance', async () => {
   const r = await ask('Which suppliers have high risk events?')
   assert.deepEqual(r.rows.map(row => row.supplier), ['S-200 Rhein Chemicals GmbH', 'S-300 Pacific Plastics Ltd'])

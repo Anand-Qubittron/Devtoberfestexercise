@@ -60,6 +60,39 @@ const featured = [
     summary: n => n ? `${n} purchase request(s) depend on suppliers with a high risk event — SAP data joined with an external feed via DUNS` : 'No purchase request depends on a supplier with a high risk event'
   },
   {
+    id: 'upload-overview',
+    text: 'How is each upload doing?',
+    keywords: ['doing', 'overview', 'progress'],
+    sparql: () => `SELECT ?upload ?uploadLabel ?user ?userLabel (COUNT(?row) AS ?rows) (SUM(?isDone) AS ?completed)
+  (SUM(?isParked) AS ?parked) (SUM(?isOpen) AS ?inProcess) (SUM(?rowAmount) AS ?amount) WHERE {
+  ?upload a pc:Upload ; pc:hasRow ?row .
+  OPTIONAL { ?upload pc:uploadedBy ?user }
+  OPTIONAL { ?row pc:processedBy ?process . ?process pc:hasStatus ?status }
+  OPTIONAL { ?row pc:resultedIn ?pr . ?pr pc:amount ?prAmount }
+  BIND(COALESCE(IF(?status = pc:Completed, 1, 0), 0) AS ?isDone)
+  BIND(COALESCE(IF(?status IN (pc:Parked, pc:Failed), 1, 0), 0) AS ?isParked)
+  BIND(COALESCE(IF(?status IN (pc:Ready, pc:Running, pc:Retrying), 1, 0), 0) AS ?isOpen)
+  BIND(COALESCE(?prAmount, 0) AS ?rowAmount)
+  ${labels('upload', 'user')}
+} GROUP BY ?upload ?uploadLabel ?user ?userLabel ORDER BY ?uploadLabel`,
+    chain: [['upload', 'uploadedBy', 'user']],
+    summary: n => `${n} upload(s) — rows per status and the amount of the purchase requests they created`
+  },
+  {
+    id: 'upload-risk',
+    text: 'Which uploads order from suppliers with high risk events?',
+    keywords: ['exposed', 'at risk'],
+    sparql: () => `SELECT ${sel('upload', 'supplier', 'company', 'event')} (COUNT(DISTINCT ?row) AS ?rows) (SUM(?rowAmount) AS ?amount) WHERE {
+  ?upload pc:hasRow ?row . ?row pc:orders ?material . ?material pc:suppliedBy ?supplier .
+  ?supplier pc:sameEntityAs ?company . ?company pc:hasRiskEvent ?event . ?event pc:riskLevel "High" .
+  OPTIONAL { ?row pc:resultedIn ?pr . ?pr pc:amount ?prAmount }
+  BIND(COALESCE(?prAmount, 0) AS ?rowAmount)
+  ${labels('upload', 'supplier', 'company', 'event')}
+} GROUP BY ${sel('upload', 'supplier', 'company', 'event')} ORDER BY DESC(?amount)`,
+    chain: [['supplier', 'sameEntityAs', 'company'], ['company', 'hasRiskEvent', 'event']],
+    summary: n => n ? `${n} upload/supplier combination(s) with a high risk event — rows from your Excel files joined with an external feed via DUNS` : 'No upload orders from a supplier with a high risk event'
+  },
+  {
     id: 'volume-per-supplier',
     text: 'What is the purchase volume per supplier?',
     keywords: ['volume', 'spend', 'per supplier'],
@@ -99,13 +132,15 @@ const featured = [
 const examples = [
   'Which suppliers are blocked?',
   'Which materials does Nordic Steel supply?',
-  'Which purchase requests are for M-2001?',
   'How many parked rows per upload?',
+  'Why are rows parked?',
+  'Which rows have quantity 0?',
+  'Which materials are missing?',
+  'Which purchase requests have an amount over 5000?',
+  'Which suppliers have no DUNS number?',
   'Total amount of purchase requests per supplier',
   'Which risk events does Pacific Plastics have?',
   'Which users uploaded rows ordering M-3001?',
-  'Which rows are waiting for a missing object?',
-  'Which concepts are demonstrated in the Knowledge Graph app?',
   'Tell me about S-300'
 ]
 
