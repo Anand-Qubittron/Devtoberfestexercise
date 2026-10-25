@@ -9,6 +9,7 @@
     "sample": "node scripts/make-sample-excel.js",
     "start": "cds serve all",
     "watch": "cds watch --open fiori.html",
+    "demo": "node scripts/demo.js",
     "test": "node --test test/"
   },
   "dependencies": {

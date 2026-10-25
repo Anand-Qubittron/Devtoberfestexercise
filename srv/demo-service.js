@@ -19,6 +19,7 @@ module.exports = class DemoService extends cds.ApplicationService {
     const scopes = {
       async Suppliers(ID) {
         const s = await SELECT.one.from('demo.Suppliers', ID)
+        if (!s) return null
         const materials = await SELECT.from('demo.Materials').where({ supplier_ID: ID })
         return {
           text: `supplier ${s.supplierNo}`,
@@ -30,10 +31,12 @@ module.exports = class DemoService extends cds.ApplicationService {
       },
       async Materials(ID) {
         const m = await SELECT.one.from('demo.Materials', ID)
+        if (!m) return null
         return { text: `material ${m.materialNo}`, targets: [{ type: 'Material', key: ID, text: `Material ${m.materialNo}` }] }
       },
       async UploadBatches(ID) {
         const b = await SELECT.one.from('demo.UploadBatches', ID).columns('name')
+        if (!b) return null
         const items = await SELECT.from('demo.UploadItems').columns('ID', 'rowNo').where({ batch_ID: ID })
         return {
           text: `upload "${b.name}"`,
@@ -61,6 +64,21 @@ module.exports = class DemoService extends cds.ApplicationService {
         } catch (e) {
           if (e instanceof LockedError) return req.reject(423, `You can't edit ${text} right now. ${e.message}`)
           throw e
+        }
+      })
+      // reopening or changing your draft takes the lock again — e.g. after it expired
+      this.before(['READ', 'PATCH'], entity.drafts, async req => {
+        if (req.params?.length !== 1) return // one draft, not a list or a sub-object
+        const ID = keyOf(req)
+        const scope = await scopes[name](ID)
+        if (!scope) return // a new object: nothing exists yet that others could change
+        try {
+          await locks.acquire(cds, scope.targets, {
+            owner: owner(name, ID), ownerText: `${req.user.id} is editing ${scope.text}`, mode: 'X', ttlMinutes: DRAFT_LOCK_MINUTES
+          })
+        } catch (e) {
+          if (!(e instanceof LockedError)) throw e
+          if (req.event === 'PATCH') return req.reject(423, `You can't change ${scope.text} right now. ${e.message}`)
         }
       })
       this.after('DISCARD', entity.drafts, (_, req) => locks.release(cds, owner(name, keyOf(req))))

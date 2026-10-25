@@ -47,6 +47,12 @@ npm test          # end-to-end test (own in-memory database)
 Log in as **alice / alice** or **bob / bob**. Use a second browser (or a private window) for the
 second user. `npm run deploy` resets the database.
 
+**Both users at once, locally:** `npm run demo` starts `cds watch` and opens the launchpad twice:
+alice on `http://alice.localhost:4004` and bob on `http://bob.localhost:4004`, already logged in.
+Browsers keep separate logins per address, so the two windows stay separate. This uses
+`/demo-login?user=…`, which only exists with the mocked users; with real authentication it is not
+there. In BAS, open `<your BAS URL>/demo-login?user=bob` in a private window instead.
+
 ## Demo script (about 5 minutes)
 
 1. **Excel Uploads → Create**: enter a name, upload `sample/material-orders.xlsx`, then **Create**.
@@ -125,8 +131,26 @@ SAP's best practices:
 | Data quality | Validate before reasoning | W3C **SHACL** rules (`shapes.ttl`), each checked as a SPARQL query (`shacl.js`), shown in the *Data quality* dialog |
 | Authorization | The graph must not reveal more than the sources would | Each user's graph only contains the named graphs their roles allow (`store.js`), so no generated or hand-written query can reach the rest |
 | SPARQL engine | HANA Cloud knowledge graph engine | [Oxigraph](https://github.com/oxigraph/oxigraph), embedded (WebAssembly, no server) |
-| Natural language → SPARQL | An LLM writes SPARQL from the ontology | **Ontology-driven and offline** (`nlq.js`): words are matched to ontology labels and synonyms, names and codes to entities, and the shortest path through the schema becomes the SPARQL. Every interpretation is shown. Plus featured questions and a free SPARQL editor |
+| Natural language → SPARQL | An LLM writes SPARQL from the ontology | **Ontology-driven and offline** (`nlq.js`): words are matched to ontology labels and synonyms, names and codes to entities, and the shortest path through the schema becomes the SPARQL. Every interpretation is shown. Plus eight featured analyses and a free SPARQL editor |
 | Explainability | Chain of reasoning | Every answer lists the triples it followed, **with the source of each step**, and draws them as a network graph; any node can be expanded |
+
+**What you can ask.** The data comes from the same tables the other tiles use, so every upload, edit or
+fix shows up in the next answer. Free questions are understood through the ontology; none of them is
+pre-written:
+
+| Kind of question | Example |
+|---|---|
+| List, multi-hop | *Which materials are blocked?* (inferred through the supplier) · *Which users uploaded rows ordering M-3001?* |
+| Count, total, per group | *How many parked rows per upload?* · *Total amount of purchase requests per supplier* |
+| Conditions on values | *Which rows have quantity 0?* · *Which purchase requests have an amount over 5000?* · *Which materials cost more than 50?* |
+| Absence | *Which suppliers have no DUNS number?* · *Which materials have no purchase requests?* |
+| Missing objects | *Which materials are missing?* (material numbers parked rows wait for) |
+| Reasons | *Why are rows parked?* adds the reason and what each row waits for |
+| Describe | *Tell me about S-300* |
+
+The eight featured analyses are curated queries for more complex questions, e.g. *How is each upload
+doing?* (rows per status and amount per upload) and *Which uploads order from suppliers with high risk
+events?* (Excel rows joined with the external feed).
 
 **Users and roles** (mocked): **alice** is a *Buyer* and sees everything; **bob** is *Support* and
 does not see SAP Finance (prices, amounts), RiskWatch or Entity resolution. Asking as bob for
@@ -145,8 +169,14 @@ standard formats that SAP HANA Cloud's knowledge graph engine can load.
 3. In the *Graph* tab, use **+** on a node to explore its neighbours.
 4. Open *Data quality*: the uploaded file's row with quantity 0 is a violation, and S-400 has no
    DUNS number, so it cannot be matched with the risk feed.
-5. Repeat question 1 as bob (private window): the answer explains that the needed sources are
-   hidden for his role.
+5. Ask *"How is each upload doing?"* and *"Why are rows parked?"*: every parked row comes with its
+   reason and what it waits for.
+6. Repeat question 1 as bob (private window): the answer explains that the needed sources are
+   hidden for their role.
+
+The quality rules run on the same per-user graph as the questions, but they don't block answers: the
+results are shown in the *Data quality* dialog. In production, validation would run when data is
+loaded.
 
 ## Roadmap
 

@@ -45,7 +45,9 @@ async function acquire(tx, targets, { owner, ownerText, mode = 'X', ttlMinutes }
     const key = { objectType: t.type, objectKey: String(t.key), owner }
     const mine = await tx.run(SELECT.one.from(Locks).where(key))
     if (mine) {
-      if (mode === 'X' && mine.mode !== 'X') await tx.run(UPDATE(Locks, mine.ID).set({ mode }))
+      // taking a lock again upgrades S to X and extends a time-limited lock
+      const changes = { ...(mode === 'X' && mine.mode !== 'X' && { mode }), ...(expiresAt && { expiresAt }) }
+      if (Object.keys(changes).length) await tx.run(UPDATE(Locks, mine.ID).set(changes))
       continue
     }
     await tx.run(INSERT.into(Locks).entries({
